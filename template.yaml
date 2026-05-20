@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: RSO Assist - Compliance Rules API (HTTP API Gateway + Lambda + DynamoDB + Cognito)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.11
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ComplianceRulesTable
+        REGION: !Ref AWS::Region
+
+Resources:
+
+  # ── Cognito User Pool ──────────────────────────────────────────────────────
+  LandauerUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: landauer-userpool-sam
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+      UserPoolTags:
+        Project: RSO-Assist
+
+  # ── Cognito App Client (SPA — no client secret) ────────────────────────────
+  LandauerWebClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: landauer-webclient-sam
+      UserPoolId: !Ref LandauerUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - "http://localhost:5174"
+      LogoutURLs:
+        - "http://localhost:5174"
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      PreventUserExistenceErrors: ENABLED
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      AccessTokenValidity: 8
+      IdTokenValidity: 8
+      RefreshTokenValidity: 30
+
+  # ── DynamoDB Table ─────────────────────────────────────────────────────────
+  ComplianceRulesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: compliance-rules-sam
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: rule_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: rule_id
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: RSO-Assist
+
+  # ── HTTP API Gateway ────────────────────────────────────────────────────────
+  ComplianceApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      CorsConfiguration:
+        AllowOrigins:
+          - "http://localhost:5173"
+          - "http://localhost:5174"
+          - "http://localhost:5175"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+        AllowMethods:
+          - GET
+          - OPTIONS
+        MaxAge: 600
+
+  # ── Lambda Function ─────────────────────────────────────────────────────────
+  ReviewRulesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: landauer-compliance-sam
+      CodeUri: lambda/review_rules/
+      Handler: app.lambda_handler
+      Description: Reads compliance rules from DynamoDB and returns them
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ComplianceRulesTable
+      Events:
+        GetReviewRules:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ComplianceApi
+            Path: /review-rules
+            Method: GET
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API base URL
+    Value: !Sub "https://${ComplianceApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  ReviewRulesUrl:
+    Description: GET /review-rules endpoint — use this as VITE_COMPLIANCE_DYNAMODB_URL
+    Value: !Sub "https://${ComplianceApi}.execute-api.${AWS::Region}.amazonaws.com/prod/review-rules"
+
+  ComplianceRulesTableName:
+    Description: DynamoDB table name
+    Value: !Ref ComplianceRulesTable
+
+  ReviewRulesFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt ReviewRulesFunction.Arn
+
+  UserPoolId:
+    Description: Cognito User Pool ID — use this as VITE_COGNITO_USER_POOL_ID
+    Value: !Ref LandauerUserPool
+
+  UserPoolClientId:
+    Description: Cognito App Client ID — use this as VITE_COGNITO_CLIENT_ID
+    Value: !Ref LandauerWebClient
+
+  Region:
+    Description: AWS region — use this as VITE_COGNITO_REGION
+    Value: !Ref AWS::Region
