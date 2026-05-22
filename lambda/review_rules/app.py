@@ -9,17 +9,9 @@ REGION     = os.environ.get("REGION", "us-east-1")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 
-ALLOWED_ORIGINS = {
-    "http://localhost:5174",
-    "https://localhost:5174",
-}
-
-
-def _cors_headers(event: dict) -> dict:
-    origin = (event.get("headers") or {}).get("origin", "")
-    allowed = origin if origin in ALLOWED_ORIGINS else ""
+def _cors_headers(_event: dict) -> dict:
     return {
-        "Access-Control-Allow-Origin":  allowed,
+        "Access-Control-Allow-Origin":  "*",
         "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
         "Access-Control-Allow-Methods": "GET,OPTIONS",
         "Content-Type":                 "application/json",

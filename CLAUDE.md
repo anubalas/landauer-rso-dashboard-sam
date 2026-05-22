@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# Skills
+- **ppt-generator** (`.claude/skills/ppt-generator/SKILL.md`) — generates a 9-slide Landauer architecture PowerPoint. Trigger: `/ppt-generator`
+When the user types `/ppt-generator`, invoke the Skill tool with `skill: "ppt-generator"` before doing anything else.
+
 ## Project Overview
 
 Landauer RSO Dashboard — a radiation safety compliance tool for Radiation Safety Officers. The app lets RSOs view tasks, a compliance calendar, and run a "Compliance Engine" that fetches rules from AWS and flags violations to create action items.

@@ -55,9 +55,13 @@ Resources:
       SupportedIdentityProviders:
         - COGNITO
       CallbackURLs:
+        - "http://localhost:5173"
         - "http://localhost:5174"
+        - "http://localhost:5175"
       LogoutURLs:
+        - "http://localhost:5173"
         - "http://localhost:5174"
+        - "http://localhost:5175"
       AllowedOAuthFlows:
         - implicit
       AllowedOAuthScopes:
@@ -97,9 +101,7 @@ Resources:
       StageName: prod
       CorsConfiguration:
         AllowOrigins:
-          - "http://localhost:5173"
-          - "http://localhost:5174"
-          - "http://localhost:5175"
+          - "*"
         AllowHeaders:
           - Content-Type
           - Authorization
